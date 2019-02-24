@@ -35,6 +35,25 @@ I don't like the name, it probably shouldn't have the word Zend in it ...
 
 This has been tested with the JIT as it currently stands, and works with it when jit is enabled and disabled, it has not been tested extensively with any other build of PHP ... so expect it to break anywhere else ...
 
+Performance Impact
+==================
+
+This approach impacts performance in the following way (tests on Zend/bench.php):
+
+| Configuration | Command                                                                       | Time   |
+|---------------|-------------------------------------------------------------------------------|--------|
+| JIT (default) | `php Zend/bench.php`                                                          |  0.140 |
+| JIT+adjusted  | `php -dopcache.optimization_level=0x7FFEBFFF -dopcache.jit=1 Zend/bench.php`  |  0.377 |
+| JIT+Overload  | `php Zend/bench.php`                                                          |  0.485 |
+| NOJIT         | `php Zend/bench.php`                                                          |  0.543 |
+
+The adjusted settings show the impact of having to force the JIT and Optimizer to behave as it should when certain compiler flags are set, this is how Overload must setup
+the JIT and Optimizer when it is loaded.
+
+While having Overload loaded does not completely destroy performance gains from JIT, it does have a considerable impact on performance. This is partly down to the way the JIT deals with user opcode handlers - it dispatches to the vm and let's the vm handle it, the vm must lookup the user opcode handler and then dispatch to it: The JIT could lookup the user opcode handler itself and dispatch directly to it rather than the vm.
+
+*The cost of doing business this way seems to be unreasonably high.*
+
 Notes
 -----
 Optimizer does several things that make this difficult, it ignores compiler flags and makes optimizations based on assumptions that may not be true. As a aresult of this, we must disable passes that are incompatible, although I hope inconsistencies between Zend and Opcache is fixed.
